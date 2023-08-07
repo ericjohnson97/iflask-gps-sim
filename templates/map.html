@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drop Pins on OSM using Leaflet</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+</head>
+
+<body>
+    <div class="container mt-4">
+        <h2 class="mb-4">OSM Map with Leaflet</h2>
+        <div id="map" class="mb-3" style="width: 100%; height: 400px;"></div>
+
+        <!-- Buttons -->
+        <div class="btn-group" role="group">
+            <button id="stopSimulation" class="btn btn-primary">Stop Simulation</button>
+            <button id="fetchRouteBtn" class="btn btn-success">Fetch Route</button>
+            <button id="adjustStartBtn" class="btn btn-warning">Adjust Start Position</button>
+            <button id="adjustEndBtn" class="btn btn-warning">Adjust End Position</button>
+            <button id="saveWaypointsBtn" class="btn btn-secondary">Save Waypoints</button>
+
+        </div>
+    </div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        var map = L.map('map').setView([32.77781399173214, -97.19041403038936], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var markers = [];  // Only one-dimensional array needed
+        var routeControl;
+        var adjustStart = false;
+        var adjustEnd = false;
+        var userMarker; // For representing the user's position
+
+        // Add a marker on map click
+        map.on('click', function (e) {
+            if (adjustStart || adjustEnd) {
+                let index = adjustStart ? 0 : 1;
+
+                if (markers[index]) {
+                    markers[index].setLatLng(e.latlng);
+                } else {
+                    let marker = L.marker(e.latlng).addTo(map);
+                    markers[index] = marker;
+                }
+
+                // If you want to re-draw the route whenever a point is adjusted:
+                if (markers.length == 2) {
+                    drawRoute();
+                }
+
+                adjustStart = adjustEnd = false;
+            } else if (markers.length < 2) {
+                let marker = L.marker(e.latlng).addTo(map);
+                markers.push(marker);
+
+                if (markers.length == 2) {
+                    drawRoute();
+                }
+            }
+        });
+
+
+        function drawRoute() {
+            if (routeControl) routeControl.remove(); // Remove existing route
+
+            routeControl = L.Routing.control({
+                waypoints: [markers[0].getLatLng(), markers[1].getLatLng()],
+                routeWhileDragging: true
+            }).addTo(map);
+        }
+
+        document.getElementById('saveWaypointsBtn').addEventListener('click', function () {
+            if (routeControl && routeControl._routes && routeControl._routes.length > 0) {
+                const routeCoordinates = routeControl._routes[0].coordinates; // Get the detailed coordinates of the first route
+                const waypoints = routeCoordinates.map(coord => ({ lat: coord.lat, lng: coord.lng }));
+
+                fetch('/save-waypoints', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ waypoints: waypoints })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                    });
+            } else {
+                alert('Please set a route first.');
+            }
+        });
+
+
+        document.getElementById('adjustStartBtn').addEventListener('click', function () {
+            adjustStart = true;
+            adjustEnd = false;
+        });
+
+        document.getElementById('adjustEndBtn').addEventListener('click', function () {
+            adjustEnd = true;
+            adjustStart = false;
+        });
+
+        document.getElementById('stopSimulation').addEventListener('click', function () {
+            fetch('/stop', {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        });
+
+        function updateUserPosition(lat, lon) {
+            if (userMarker) {
+                userMarker.setLatLng([lat, lon]);
+            } else {
+                userMarker = L.marker([lat, lon]).addTo(map);
+            }
+        }
+
+        setInterval(function () {
+            fetch('/get-current-position')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.lat && data.lon) {
+                        updateUserPosition(data.lat, data.lon);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching current position:', error);
+                });
+        }, 2000);
+
+        function addStoredRoute(waypoints) {
+            if (waypoints.length >= 2) {
+                let latLngWaypoints = waypoints.map(point => L.latLng(point['lat'], point['lng']));
+                if (routeControl) routeControl.remove();
+                routeControl = L.polyline(latLngWaypoints, {
+                    color: 'red',
+                    opacity: 1,
+                    weight: 5
+                }).addTo(map);
+            }
+        }
+
+        document.getElementById('fetchRouteBtn').addEventListener('click', function () {
+            fetch('/get-waypoints')
+                .then(response => response.json())
+                .then(data => {
+                    addStoredRoute(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching stored waypoints:', error);
+                });
+        });
+
+        // Fetch stored waypoints and draw the route when the page loads
+        fetch('/get-waypoints')
+            .then(response => response.json())
+            .then(data => {
+                addStoredRoute(data);
+            })
+            .catch(error => {
+                console.error('Error fetching stored waypoints:', error);
+            });
+
+
+
+
+
+    </script>
+</body>
+
+</html>

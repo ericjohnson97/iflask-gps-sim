@@ -12,7 +12,7 @@ current_thread = None
 current_position = (None, None)
 
 def simulate_location(lat, lon):
-    cmd = ["python3.8", "-m", "pymobiledevice3", "developer", "simulate-location", "set", "--", str(lat), str(lon)]
+    cmd = ["python3", "-m", "pymobiledevice3", "developer", "simulate-location", "set", "--", str(lat), str(lon)]
     print(cmd)
     subprocess.run(cmd)
 

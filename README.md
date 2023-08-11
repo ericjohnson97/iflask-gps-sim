@@ -4,6 +4,16 @@ this package is used to simulate moving and iphone by using Apple's gps simulati
 
 ## Setup 
 
+download project 
+```
+git clone https://github.com/ericjohnson97/iflask-gps-sim.git
+```
+
+change directory to project 
+```
+cd iflask-gps-sim/
+```
+
 install dependencies
 ```
 pip3 install -r requirements.txt

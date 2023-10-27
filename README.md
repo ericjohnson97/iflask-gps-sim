@@ -20,6 +20,13 @@ pip3 install -r requirements.txt
 ```
 
 ## Run Application
+
+mount developer image
+```
+python3 -m pymobiledevice3 mounter mount-developer 16.6/DeveloperDiskImage.dmg 16.6/DeveloperDiskImage.dmg
+```
+
+
 ```
 python3 app.py
 ```

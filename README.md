@@ -31,6 +31,21 @@ python3 -m pymobiledevice3 mounter mount-developer 16.6/DeveloperDiskImage.dmg 1
 python3 app.py
 ```
 
+## Running App after Image is mounted
+
+```
+cd iflask-gps-sim/
+```
+
+```
+sudo python3 app.py
+```
+
+
+go to 
+
+127.0.0.1:5000
+
 ## Using the Application
 
 got to http://localhost:5000/
